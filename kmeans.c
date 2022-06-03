@@ -6,7 +6,7 @@
 #include <math.h>
 
 static PyObject* fit(PyObject* self, PyObject* args);
-void opt(int K, double** dataPoints, double** centeroids, double** clusters, int* clusters_size, int max_iter, int N, int d, double epsilon);
+PyObject* opt(int K, double** dataPoints, double** centeroids, int max_iter, int N, int d, double epsilon);
 void init_clusters(double ** clusters,int K, int d, int* sizes);
 double* update_centeroid(double *cluster, int cluster_size, int d);
 int find_min(double* dataPoint, double** centeroids, int K, int d);
@@ -18,12 +18,18 @@ void freeMatrix(double** m, int k);
 
 static PyObject* fit(PyObject* self, PyObject* args)
 {
-    Py_ssize_t i, j, i2, j2;
-    int N, d, K, max_iter, p, q;
+    Py_ssize_t i; 
+    Py_ssize_t j;
+    int N; 
+    int d;
+    int K;
+    int max_iter; 
     double epsilon;
-    PyObject *centeroids_indexesP,**centeroidsP, **datapointsP, *item;
-    double **centeroids, **datapoints, **clusters;
-    int *cluster_sizes;
+    PyObject *centeroids_indexesP;
+    PyObject *centeroidsP; 
+    PyObject *datapointsP;
+    double **centeroids; 
+    double **datapoints; 
     
     if(!PyArg_ParseTuple(args, "iiiidOOO:fit", &N, &d, &K, &max_iter,&epsilon, &centeroids_indexesP, &centeroidsP, &datapointsP))
     {
@@ -32,6 +38,7 @@ static PyObject* fit(PyObject* self, PyObject* args)
 
     datapoints = getMatrix(N,d);
     if (datapoints == NULL){
+        printf("problem getMatrix");
         return Py_BuildValue("");
     }
     for (i = 0; i < N; i++)
@@ -47,6 +54,7 @@ static PyObject* fit(PyObject* self, PyObject* args)
     }
     centeroids = getMatrix(K, d);
     if (centeroids == NULL){
+        printf("problem getMatrix2");
         freeMatrix(centeroids ,K);
         return Py_BuildValue("");
     }
@@ -61,21 +69,8 @@ static PyObject* fit(PyObject* self, PyObject* args)
             } 
         }
     }
-    clusters = (double**) calloc(K, sizeof(double*));
-    cluster_sizes = (int*) calloc(K, sizeof(int));
-
-    for (q = 0; q < K; q++)
-    {
-        for(p = 0; p < d; p++)
-        {
-            clusters[q][p] = centeroids[q][p];
-        }
-        cluster_sizes[q] = 1;
-    }
-    opt(K, datapoints, centeroids, clusters, cluster_sizes, max_iter, N, d, epsilon);
-
-   return Py_BuildValue("O", centeroids);
-
+    
+    return opt(K, datapoints, centeroids, max_iter, N, d, epsilon);
 }
 
 static PyMethodDef capiMethods[] = {
@@ -106,26 +101,44 @@ PyInit_mykmeanssp(void)
     return kmeans;
 }
 
-void opt(int K, double** dataPoints, double** centeroids, double** clusters, int* clusters_size, int max_iter, int N, int d, double epsilon)
+PyObject* opt(int K, double** dataPoints, double** centeroids, int max_iter, int N, int d, double epsilon)
 {
-    int reps = 0, done = 0, i, min_cluster, j;
+    Py_ssize_t q, p;
+    PyObject * returnedCenteroids;
+    PyObject* temp;
+    int reps, done, i, min_cluster, j;
     double* new_centeroid;
+    double **clusters;
+    int *cluster_sizes;
     new_centeroid = (double*) calloc(d, sizeof(double));
+
+    clusters = getMatrix(K, d);
+    cluster_sizes = (int*) calloc(K, sizeof(int));
+    for (q = 0; q < K; q++)
+    {
+        for(p = 0; p < d; p++)
+        {
+            clusters[q][p] = centeroids[q][p];
+        }
+        cluster_sizes[q] = 1;
+    }
+    reps = 0;
+    done = 0;
 
     while(done == 0 && reps < max_iter)
     {
-        init_clusters(clusters, K, d, clusters_size);
+        init_clusters(clusters, K, d, cluster_sizes);
         done = 1;
         for(i = 0; i < N; i++)
         {
             min_cluster = find_min(dataPoints[i], centeroids, K, d);
             sum_vectors(clusters[min_cluster], dataPoints[i], d);
-            clusters_size[min_cluster]++;
+            cluster_sizes[min_cluster]++;
         }
         for (i = 0; i < K; i++)
         {
-            if(clusters_size[i] > 0)
-                new_centeroid = update_centeroid(clusters[i], clusters_size[i], d);
+            if(cluster_sizes[i] > 0)
+                new_centeroid = update_centeroid(clusters[i], cluster_sizes[i], d);
 
             if(calculate_dist(new_centeroid, centeroids[i], d) >= epsilon)
                 done = 0;
@@ -136,7 +149,23 @@ void opt(int K, double** dataPoints, double** centeroids, double** clusters, int
         }
         reps++;
     }
+
+    returnedCenteroids = PyList_New(K);
+    for(q = 0; q < K; q++)
+    {
+        temp = PyList_New(d);
+        for(p = 0; p < d; p++)
+        {
+            PyList_SetItem(temp, p, PyFloat_FromDouble(centeroids[q][p]));
+        }
+        PyList_SetItem(returnedCenteroids, q, temp);
+    }
+
+    freeMatrix(centeroids, K);
     free(new_centeroid);
+    freeMatrix(dataPoints,K);
+    free(cluster_sizes);
+    return returnedCenteroids;
 }
 double* update_centeroid(double *cluster, int cluster_size, int d)
 {
@@ -219,20 +248,20 @@ double ** getMatrix(int N, int d)
     data = (double**) calloc(N, sizeof(double*));
     if(data == NULL)
         return data;
-        for(i = 0; i < N; i++)
+    for(i = 0; i < N; i++)
+    {
+        data[i] = (double*)calloc(d,sizeof(double));
+        if(data[i] == NULL)
         {
-            data[i] = (double*)calloc(d,sizeof(double));
-            if(data[i] == NULL)
+            for(j = 0 ;j <= i-1; j++)
             {
-                for(j = 0 ;j <= i-1; j++)
-                {
-                    free(data[j]);
-                }
+                free(data[j]);
             }
-            free(data);
-            return NULL;
+        free(data);
+        return NULL;
         }
-        return data;
+    }
+    return data;
 }
 
 void freeMatrix(double** m, int k) {

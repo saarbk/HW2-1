@@ -62,7 +62,7 @@ static PyObject* fit(PyObject* self, PyObject* args)
     {
         for (j = 0; j < d; j++)
         {
-            centeroids[i][j] = PyFloat_AS_DOUBLE(PyList_GetItem(PyList_GetItem(datapointsP, i),j));
+            centeroids[i][j] = PyFloat_AS_DOUBLE(PyList_GetItem(PyList_GetItem(centeroidsP, i),j));
             if (PyErr_Occurred())
             {
             puts("An error has occured");
@@ -113,17 +113,8 @@ PyObject* opt(int K, double** dataPoints, double** centeroids, int max_iter, int
     int *cluster_sizes;
     new_centeroid = (double*) calloc(d, sizeof(double));
 
-    printf("in OPT");
     clusters = getMatrix(K, d);
     cluster_sizes = (int*) calloc(K, sizeof(int));
-    for (q = 0; q < K; q++)
-    {
-        for(p = 0; p < d; p++)
-        {
-            clusters[q][p] = centeroids[q][p];
-        }
-        cluster_sizes[q] = 1;
-    }
     reps = 0;
     done = 0;
 
@@ -162,7 +153,6 @@ PyObject* opt(int K, double** dataPoints, double** centeroids, int max_iter, int
         }
         PyList_SetItem(returnedCenteroids, q, temp);
     }
-
     freeMatrix(centeroids, K);
     free(new_centeroid);
     freeMatrix(dataPoints,K);
@@ -273,3 +263,4 @@ void freeMatrix(double** m, int k) {
     }
     free(m);
 }
+

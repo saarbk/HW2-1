@@ -1,10 +1,8 @@
 import math
 import sys
-from turtle import shape
 import numpy as np
 import pandas as pd
-from requests import head
-import kmeans as km
+import mykmeanssp as km
 
 def getMinDl(xl: np.ndarray, centeroids: np.ndarray, i:int) -> int:
     min_d = np.sum(np.power((xl-centeroids[0]),2)) 
@@ -33,9 +31,21 @@ def kMeanspp(df:np.ndarray, N: int, k: int, d: int, max_iter: int):
         P = getProb(D)
         centeroids_indexes.append(np.random.choice(a = range(N) ,size = 1, p = P))
         centeroids = np.append(centeroids, df[centeroids_indexes[i]], axis=0)
+    c = [[0 for x in range(d)] for y in range(k)]
+    for row in range(len(centeroids)):
+        for col in range(len(centeroids[row])):
+            c[row][col] = centeroids[row][col]
+
+    datapoints = [[0 for x in range(d)] for y in range(N)]
+    for row in range(len(df)):
+        for col in range(len(df[row])):
+            datapoints[row][col] = df[row][col]
     print(centeroids_indexes)
-    centeroids = km.fit(N, d, k, max_iter, centeroids_indexes, centeroids, df)
+    
+    centeroids = km.fit(N, d, k, max_iter,eps, centeroids_indexes, c, datapoints)
+    arr = np.array(centeroids)
     print(centeroids)
+   
 
 k, max_iter, eps, file1, file2 = (int(0), int(300), float(0), '', '')
 input = sys.argv

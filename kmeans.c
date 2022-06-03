@@ -6,7 +6,7 @@
 #include <math.h>
 
 static PyObject* fit(PyObject* self, PyObject* args);
-PyObject* opt(int K, double** dataPoints, double** centeroids, int max_iter, int N, int d, double epsilon);
+PyObject* opt(int, double**, double**, int, int, int, double);
 void init_clusters(double ** clusters,int K, int d, int* sizes);
 double* update_centeroid(double *cluster, int cluster_size, int d);
 int find_min(double* dataPoint, double** centeroids, int K, int d);
@@ -58,7 +58,7 @@ static PyObject* fit(PyObject* self, PyObject* args)
         freeMatrix(centeroids ,K);
         return Py_BuildValue("");
     }
-    for (i = 0; i < N; i++)
+    for (i = 0; i < K; i++)
     {
         for (j = 0; j < d; j++)
         {
@@ -71,6 +71,7 @@ static PyObject* fit(PyObject* self, PyObject* args)
     }
     
     return opt(K, datapoints, centeroids, max_iter, N, d, epsilon);
+    
 }
 
 static PyMethodDef capiMethods[] = {
@@ -112,6 +113,7 @@ PyObject* opt(int K, double** dataPoints, double** centeroids, int max_iter, int
     int *cluster_sizes;
     new_centeroid = (double*) calloc(d, sizeof(double));
 
+    printf("in OPT");
     clusters = getMatrix(K, d);
     cluster_sizes = (int*) calloc(K, sizeof(int));
     for (q = 0; q < K; q++)
